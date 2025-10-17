@@ -1,0 +1,10 @@
+hard_tabs = false
+tab_spaces = 2
+max_width = 100
+use_small_heuristics = "Max"
+newline_style = "Windows"
+reorder_imports = true
+fn_params_layout = "Tall"
+match_arm_leading_pipes = "Always"
+match_block_trailing_comma = false
+remove_nested_parens = true
