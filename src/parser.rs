@@ -112,7 +112,7 @@ impl Parser {
     }
   }
 
-  fn precedence(&self, token: &Token) -> Prec {
+  fn precedence(token: &Token) -> Prec {
     match token {
       Token::Star | Token::Slash => Prec::MulDiv,
       Token::Plus | Token::Minus => Prec::AddSub,
@@ -122,20 +122,13 @@ impl Parser {
   }
 
   fn parse_expr(&mut self) -> Result<Expr, CompileError> {
-    match &self.current {
-      Token::String(s) => {
-        let val = s.clone();
-        self.next()?;
-        Ok(Expr::String(val))
-      }
-      _ => self.parse_expr_proc(Prec::Lowest),
-    }
+    self.parse_expr_proc(Prec::Lowest)
   }
 
   fn parse_expr_proc(&mut self, prec: Prec) -> Result<Expr, CompileError> {
     let mut left = self.parse_primary()?;
 
-    while self.precedence(&self.current) > prec {
+    while Self::precedence(&self.current) > prec {
       let op_token = self.current.clone();
       let op = match op_token {
         Token::Plus => BinOp::Add,
@@ -151,7 +144,7 @@ impl Parser {
 
       self.next()?;
 
-      let right = self.parse_expr_proc(self.precedence(&op_token))?;
+      let right = self.parse_expr_proc(Self::precedence(&op_token))?;
 
       let is_comp = matches!(op, BinOp::GT | BinOp::GTE | BinOp::LT | BinOp::LTE);
       let is_next_comp = matches!(self.current, Token::GT | Token::GTE | Token::LT | Token::LTE);
@@ -186,6 +179,11 @@ impl Parser {
           return Err(CompileError::ParseError("Expected ')".to_string()));
         }
         Ok(expr)
+      }
+      Token::String(s) => {
+        let val = s.clone();
+        self.next()?;
+        Ok(Expr::String(val))
       }
       _ => Err(CompileError::ParseError(format!("Unexpected token: {:?}", self.current))),
     }

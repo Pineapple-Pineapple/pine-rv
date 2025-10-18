@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::parser::{BinOp, Expr, Stmt};
 
 pub struct CodeGen {
+  strings: HashMap<String, String>,
   vars: HashMap<String, i32>,
   var_offset: i32,
   output: Vec<String>,
@@ -11,7 +12,13 @@ pub struct CodeGen {
 
 impl CodeGen {
   pub fn new() -> Self {
-    CodeGen { vars: HashMap::new(), var_offset: 0, output: Vec::new(), reg_counter: 0 }
+    CodeGen {
+      strings: HashMap::new(),
+      vars: HashMap::new(),
+      var_offset: 0,
+      output: Vec::new(),
+      reg_counter: 0,
+    }
   }
 
   fn alloc_reg(&mut self) -> String {
@@ -30,8 +37,6 @@ impl CodeGen {
   }
 
   pub fn generate(&mut self, stmts: &Vec<Stmt>) -> String {
-    self.output.push("  .data".to_string());
-    self.output.push("".to_string());
     self.output.push("  .text".to_string());
     self.output.push("  .globl main".to_string());
     self.output.push("main:".to_string());
@@ -43,10 +48,18 @@ impl CodeGen {
 
     self.output.push("".to_string());
     self.output.push("  # Exit with code 0".to_string());
+    self.output.push("  li a1, 0 # Exit code 0".to_string());
     self.output.push("  li a0, 17 # Syscall 17: exit2".to_string());
     self.output.push("  ecall".to_string());
 
-    self.output.join("\n")
+    let mut final_out = Vec::new();
+    final_out.push("".to_string());
+    final_out.push("  .data".to_string());
+    self.gen_strings(&mut final_out);
+    final_out.push("".to_string());
+    final_out.append(&mut self.output);
+
+    final_out.join("\n")
   }
 
   fn gen_stmt(&mut self, stmt: &Stmt) {
@@ -73,9 +86,71 @@ impl CodeGen {
         self.output.push("  ecall".to_string());
         self.output.push("".to_string());
       }
-      Stmt::Print { expr } => todo!(),
-      Stmt::PrintLn { expr } => todo!(),
+      Stmt::Print { expr } => self.gen_print(expr, false),
+      Stmt::PrintLn { expr } => self.gen_print(expr, true),
     }
+  }
+
+  fn gen_print(&mut self, expr: &Expr, newline: bool) {
+    match expr {
+      Expr::Int(_) | Expr::Var(_) | Expr::BinOp { .. } => {
+        let reg = self.gen_expr(expr);
+        self.output.push(format!("  mv a1, {} # Expression to print", reg));
+        self.output.push("  li a0, 1 # Syscall 1: print_int".to_string());
+        self.output.push("  ecall".to_string());
+      }
+      Expr::String(s) => {
+        let label = self.ensure_string_label(s);
+        self.output.push(format!("  la a1, {} # Load string {}", label, Self::escape_asciz(s)));
+        self.output.push("  li a0, 4 # Syscall 4: print_string".to_string());
+        self.output.push("  ecall".to_string());
+      }
+    }
+
+    if newline {
+      self.output.push("  li a1, '\\n' # Load newline char".to_string());
+      self.output.push("  li a0, 11 # Syscall 11: print_character".to_string());
+      self.output.push("  ecall".to_string());
+    }
+
+    self.output.push("".to_string());
+  }
+
+  fn ensure_string_label(&mut self, s: &String) -> String {
+    if !self.strings.contains_key(s) {
+      self.strings.insert(s.clone(), format!("str{}", self.strings.len()));
+    }
+    self.strings.get(s).unwrap().clone()
+  }
+
+  fn gen_strings(&self, out: &mut Vec<String>) {
+    let pairs: Vec<_> = self.strings.iter().collect();
+    for (s, label) in pairs {
+      let escaped = Self::escape_asciz(s);
+      // NOTE: venus uses .asciiz instead of .asciz for some reason
+      out.push(format!("{}: .asciiz \"{}\"", label, escaped));
+    }
+  }
+
+  fn escape_asciz(s: &str) -> String {
+    let mut escaped = String::new();
+
+    for c in s.chars() {
+      match c {
+        '\\' => escaped.push_str("\\\\"),
+        '\"' => escaped.push_str("\\\""),
+        '\n' => escaped.push_str("\\n"),
+        '\t' => escaped.push_str("\\t"),
+        '\r' => escaped.push_str("\\r"),
+        c if c.is_ascii_graphic() || c == ' ' => escaped.push(c),
+        c => {
+          use std::fmt::Write;
+          write!(&mut escaped, "\\\\x{:02X}", c as u32).unwrap();
+        }
+      }
+    }
+
+    escaped
   }
 
   fn gen_expr(&mut self, expr: &Expr) -> String {
@@ -130,7 +205,13 @@ impl CodeGen {
 
         result_reg
       }
-      Expr::String(_) => todo!(),
+      Expr::String(s) => {
+        let reg = self.alloc_reg();
+        let label = self.ensure_string_label(s);
+        self.output.push(format!("  la {}, {} # Store string {:?}", reg, label, Self::escape_asciz(s)));
+
+        reg
+      }
     }
   }
 }
