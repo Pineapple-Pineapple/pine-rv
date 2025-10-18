@@ -110,6 +110,20 @@ impl CodeGen {
           BinOp::Div => {
             self.output.push(format!("  div {}, {}, {} # division", result_reg, left_reg, right_reg))
           }
+          BinOp::LT => {
+            self.output.push(format!("  slt {}, {}, {} # left < right", result_reg, left_reg, right_reg))
+          }
+          BinOp::LTE => {
+            self.output.push(format!("  slt {}, {}, {} # right < left", result_reg, right_reg, left_reg));
+            self.output.push(format!("  xori {}, {}, 1 # For <=", result_reg, result_reg))
+          }
+          BinOp::GT => {
+            self.output.push(format!("  slt {}, {}, {} # right < left", result_reg, right_reg, left_reg))
+          }
+          BinOp::GTE => {
+            self.output.push(format!("  slt {}, {}, {} # left < right", result_reg, left_reg, right_reg));
+            self.output.push(format!("  xori {}, {}, 1 # For >=", result_reg, result_reg))
+          }
         }
 
         result_reg

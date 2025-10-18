@@ -16,6 +16,10 @@ pub enum BinOp {
   Sub,
   Mul,
   Div,
+  GT,
+  LT,
+  GTE,
+  LTE,
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -23,6 +27,7 @@ enum Prec {
   Lowest,
   AddSub,
   MulDiv,
+  Comp,
 }
 
 #[derive(Debug)]
@@ -95,6 +100,7 @@ impl Parser {
     match token {
       Token::Star | Token::Slash => Prec::MulDiv,
       Token::Plus | Token::Minus => Prec::AddSub,
+      Token::LT | Token::LTE | Token::GT | Token::GTE => Prec::Comp,
       _ => Prec::Lowest,
     }
   }
@@ -113,6 +119,10 @@ impl Parser {
         Token::Minus => BinOp::Sub,
         Token::Star => BinOp::Mul,
         Token::Slash => BinOp::Div,
+        Token::GT => BinOp::GT,
+        Token::GTE => BinOp::GTE,
+        Token::LT => BinOp::LT,
+        Token::LTE => BinOp::LTE,
         _ => break,
       };
 

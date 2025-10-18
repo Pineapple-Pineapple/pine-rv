@@ -12,6 +12,10 @@ pub enum Token {
   Semicolon,
   LParen,
   RParen,
+  LT,
+  GT,
+  LTE,
+  GTE,
   Exit,
   Eof,
 }
@@ -107,6 +111,14 @@ impl Lexer {
         ')' => {
           self.next();
           Ok(Token::RParen)
+        }
+        '<' => {
+          self.next();
+          if self.peek().unwrap() == '=' { Ok(Token::LTE) } else { Ok(Token::LT) }
+        }
+        '>' => {
+          self.next();
+          if self.peek().unwrap() == '=' { Ok(Token::GTE) } else { Ok(Token::GT) }
         }
         _ if ch.is_numeric() => Ok(Token::Int(self.read_number()?)),
         _ if ch.is_alphabetic() => {
