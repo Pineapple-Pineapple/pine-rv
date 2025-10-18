@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::parser::{Expr, Stmt};
+use crate::parser::{BinOp, Expr, Stmt};
 
 pub struct CodeGen {
   vars: HashMap<String, i32>,
@@ -29,7 +29,7 @@ impl CodeGen {
     reg.to_string()
   }
 
-  pub fn generate(&mut self, stmts: Vec<Stmt>) -> String {
+  pub fn generate(&mut self, stmts: &Vec<Stmt>) -> String {
     self.output.push("  .data".to_string());
     self.output.push("".to_string());
     self.output.push("  .text".to_string());
@@ -38,7 +38,7 @@ impl CodeGen {
     self.output.push("  addi sp, sp, -128 # Set up stack frame".to_string());
 
     for stmt in stmts {
-      self.gen_stmt(&stmt);
+      self.gen_stmt(stmt);
     }
 
     self.output.push("".to_string());
@@ -57,8 +57,8 @@ impl CodeGen {
           self.vars.insert(var.clone(), self.var_offset);
           self.var_offset += 4;
         }
-        let offset = self.vars[var];
-        self.output.push(format!("  sw, {}, {}(sp) # Store variable {}", reg, offset, var));
+        let offset = *self.vars.get(var).unwrap();
+        self.output.push(format!("  sw {}, {}(sp) # Store variable {}", reg, offset, var));
         self.output.push("".to_string());
       }
       Stmt::Exit(code) => {
@@ -70,13 +70,50 @@ impl CodeGen {
           self.output.push("  li a0, 10 # Syscall 10: exit".to_string());
         }
 
-        self.output.push("ecall".to_string());
+        self.output.push("  ecall".to_string());
         self.output.push("".to_string());
       }
     }
   }
 
   fn gen_expr(&mut self, expr: &Expr) -> String {
-    panic!("TODO: Implement gen_expr");
+    match expr {
+      Expr::Int(n) => {
+        let reg = self.alloc_reg();
+        self.output.push(format!("  li {}, {} # Load immediate {}", reg, n, n));
+        reg
+      }
+      Expr::Var(var) => {
+        if let Some(&offset) = self.vars.get(var) {
+          let reg = self.alloc_reg();
+          self.output.push(format!("  lw {}, {}(sp) # Load variable {}", reg, offset, var));
+          reg
+        } else {
+          panic!("Unknown variable '{}'", var);
+        }
+      }
+      Expr::BinOp { op, left, right } => {
+        let left_reg = self.gen_expr(left);
+        let right_reg = self.gen_expr(right);
+        let result_reg = self.alloc_reg();
+
+        match op {
+          BinOp::Add => {
+            self.output.push(format!("  add {}, {}, {} # addition", result_reg, left_reg, right_reg))
+          }
+          BinOp::Sub => {
+            self.output.push(format!("  sub {}, {}, {} # subtraction", result_reg, left_reg, right_reg))
+          }
+          BinOp::Mul => {
+            self.output.push(format!("  mul {}, {}, {} # multiplication", result_reg, left_reg, right_reg))
+          }
+          BinOp::Div => {
+            self.output.push(format!("  div {}, {}, {} # division", result_reg, left_reg, right_reg))
+          }
+        }
+
+        result_reg
+      }
+    }
   }
 }
