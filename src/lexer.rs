@@ -114,11 +114,21 @@ impl Lexer {
         }
         '<' => {
           self.next();
-          if self.peek().unwrap() == '=' { Ok(Token::LTE) } else { Ok(Token::LT) }
+          if let Some('=') = self.peek() {
+            self.next();
+            Ok(Token::LTE)
+          } else {
+            Ok(Token::LT)
+          }
         }
         '>' => {
           self.next();
-          if self.peek().unwrap() == '=' { Ok(Token::GTE) } else { Ok(Token::GT) }
+          if let Some('=') = self.peek() {
+            self.next();
+            Ok(Token::GTE)
+          } else {
+            Ok(Token::GT)
+          }
         }
         _ if ch.is_numeric() => Ok(Token::Int(self.read_number()?)),
         _ if ch.is_alphabetic() => {

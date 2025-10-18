@@ -129,6 +129,13 @@ impl Parser {
       self.next()?;
 
       let right = self.parse_expr_proc(self.precedence(&op_token))?;
+
+      let is_comp = matches!(op, BinOp::GT | BinOp::GTE | BinOp::LT | BinOp::LTE);
+      let is_next_comp = matches!(self.current, Token::GT | Token::GTE | Token::LT | Token::LTE);
+      if is_comp && is_next_comp {
+        return Err(CompileError::ParseError("Chained comparisons are not allowed".to_string()));
+      }
+
       left = Expr::BinOp { op, left: Box::new(left), right: Box::new(right) };
     }
 
