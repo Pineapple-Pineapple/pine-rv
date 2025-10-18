@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::parser::Stmt;
+use crate::parser::{Expr, Stmt};
 
 pub struct CodeGen {
   vars: HashMap<String, i32>,
@@ -50,6 +50,33 @@ impl CodeGen {
   }
 
   fn gen_stmt(&mut self, stmt: &Stmt) {
-    panic!("TODO: Implement statement generation")
+    match stmt {
+      Stmt::Assign { var, expr } => {
+        let reg = self.gen_expr(expr);
+        if !self.vars.contains_key(var) {
+          self.vars.insert(var.clone(), self.var_offset);
+          self.var_offset += 4;
+        }
+        let offset = self.vars[var];
+        self.output.push(format!("  sw, {}, {}(sp) # Store variable {}", reg, offset, var));
+        self.output.push("".to_string());
+      }
+      Stmt::Exit(code) => {
+        if let Some(expr) = code {
+          let reg = self.gen_expr(expr);
+          self.output.push(format!("  mv a1, {} # exit code", reg));
+          self.output.push("  li a0, 17 # Syscall 17: exit2".to_string());
+        } else {
+          self.output.push("  li a0, 10 # Syscall 10: exit".to_string());
+        }
+
+        self.output.push("ecall".to_string());
+        self.output.push("".to_string());
+      }
+    }
+  }
+
+  fn gen_expr(&mut self, expr: &Expr) -> String {
+    panic!("TODO: Implement gen_expr");
   }
 }
