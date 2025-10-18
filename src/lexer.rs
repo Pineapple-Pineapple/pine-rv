@@ -77,6 +77,39 @@ impl Lexer {
     id
   }
 
+  fn read_string(&mut self) -> Result<String, CompileError> {
+    let mut s = String::new();
+    while let Some(ch) = self.peek() {
+      match ch {
+        '"' => {
+          self.next();
+          return Ok(s);
+        }
+        '\\' => {
+          self.next();
+          if let Some(escaped) = self.peek() {
+            let real_ch = match escaped {
+              'n' => '\n',
+              't' => '\t',
+              '"' => '"',
+              '\\' => '\\',
+              other => other,
+            };
+            s.push(real_ch);
+            self.next();
+          } else {
+            return Err(CompileError::LexError("Unterminated escape in string".to_string()));
+          }
+        }
+        _ => {
+          s.push(ch);
+          self.next();
+        }
+      }
+    }
+    Err(CompileError::LexError("Unterminated string literal".to_string()))
+  }
+
   pub fn next_token(&mut self) -> Result<Token, CompileError> {
     self.skip_whitespace();
 
@@ -135,13 +168,7 @@ impl Lexer {
         }
         '"' => {
           self.next();
-          let val = self.read_identifier();
-          if let Some('"') = self.peek() {
-            self.next();
-            Ok(Token::String(val))
-          } else {
-            Err(CompileError::LexError("Expected closing quote after string".to_string()))
-          }
+          Ok(Token::String(self.read_string()?))
         }
         _ if ch.is_numeric() => Ok(Token::Int(self.read_number()?)),
         _ if ch.is_alphabetic() => {
