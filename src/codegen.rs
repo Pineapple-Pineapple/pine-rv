@@ -73,6 +73,8 @@ impl CodeGen {
         self.output.push("  ecall".to_string());
         self.output.push("".to_string());
       }
+      Stmt::Print { expr } => todo!(),
+      Stmt::PrintLn { expr } => todo!(),
     }
   }
 
@@ -128,6 +130,7 @@ impl CodeGen {
 
         result_reg
       }
+      Expr::String(_) => todo!(),
     }
   }
 }

@@ -7,6 +7,7 @@ use crate::{
 pub enum Expr {
   Int(i32),
   Var(String),
+  String(String),
   BinOp { op: BinOp, left: Box<Expr>, right: Box<Expr> },
 }
 
@@ -33,6 +34,8 @@ enum Prec {
 #[derive(Debug)]
 pub enum Stmt {
   Assign { var: String, expr: Expr },
+  Print { expr: Expr },
+  PrintLn { expr: Expr },
   Exit(Option<Expr>),
 }
 
@@ -79,7 +82,7 @@ impl Parser {
 
       Token::Exit => {
         self.next()?;
-        let exit_code = if self.current != Token::Semicolon && self.current != Token::Eof {
+        let exit_code = if !matches!(self.current, Token::Semicolon | Token::Eof) {
           Some(self.parse_expr()?)
         } else {
           None
@@ -90,6 +93,19 @@ impl Parser {
         }
 
         Ok(Stmt::Exit(exit_code))
+      }
+
+      Token::Print | Token::PrintLn => {
+        let is_newline = matches!(self.current, Token::PrintLn);
+        self.next()?;
+
+        let expr = self.parse_expr()?;
+
+        if self.current == Token::Semicolon {
+          self.next()?;
+        }
+
+        if is_newline { Ok(Stmt::PrintLn { expr }) } else { Ok(Stmt::Print { expr }) }
       }
 
       _ => Err(CompileError::ParseError(format!("Unexpected token: {:?}", self.current))),
@@ -106,7 +122,14 @@ impl Parser {
   }
 
   fn parse_expr(&mut self) -> Result<Expr, CompileError> {
-    self.parse_expr_proc(Prec::Lowest)
+    match &self.current {
+      Token::String(s) => {
+        let val = s.clone();
+        self.next()?;
+        Ok(Expr::String(val))
+      }
+      _ => self.parse_expr_proc(Prec::Lowest),
+    }
   }
 
   fn parse_expr_proc(&mut self, prec: Prec) -> Result<Expr, CompileError> {
@@ -143,7 +166,7 @@ impl Parser {
   }
 
   fn parse_primary(&mut self) -> Result<Expr, CompileError> {
-    match &self.current.clone() {
+    match &self.current {
       Token::Int(n) => {
         let val = *n;
         self.next()?;

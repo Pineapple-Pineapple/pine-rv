@@ -4,6 +4,7 @@ use crate::error::CompileError;
 pub enum Token {
   Int(i32),
   Ident(String),
+  String(String),
   Plus,
   Minus,
   Star,
@@ -16,6 +17,8 @@ pub enum Token {
   GT,
   LTE,
   GTE,
+  Print,
+  PrintLn,
   Exit,
   Eof,
 }
@@ -130,11 +133,23 @@ impl Lexer {
             Ok(Token::GT)
           }
         }
+        '"' => {
+          self.next();
+          let val = self.read_identifier();
+          if let Some('"') = self.peek() {
+            self.next();
+            Ok(Token::String(val))
+          } else {
+            Err(CompileError::LexError("Expected closing quote after string".to_string()))
+          }
+        }
         _ if ch.is_numeric() => Ok(Token::Int(self.read_number()?)),
         _ if ch.is_alphabetic() => {
           let id = self.read_identifier();
           match id.as_str() {
             "exit" => Ok(Token::Exit),
+            "print" => Ok(Token::Print),
+            "println" => Ok(Token::PrintLn),
             _ => Ok(Token::Ident(id)),
           }
         }
