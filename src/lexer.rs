@@ -1,8 +1,6 @@
-use std::{error::Error, num::ParseIntError, string::ParseError};
-
 use crate::error::CompileError;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Token {
   Int(i32),
   Ident(String),
@@ -28,7 +26,7 @@ impl Lexer {
     Lexer { input: input.chars().collect(), pos: 0 }
   }
 
-  fn current(&self) -> Option<char> {
+  fn peek(&self) -> Option<char> {
     if self.pos < self.input.len() { Some(self.input[self.pos]) } else { None }
   }
 
@@ -37,7 +35,7 @@ impl Lexer {
   }
 
   fn skip_whitespace(&mut self) {
-    while let Some(ch) = self.current() {
+    while let Some(ch) = self.peek() {
       if ch.is_whitespace() {
         self.next();
       } else {
@@ -48,7 +46,7 @@ impl Lexer {
 
   fn read_number(&mut self) -> Result<i32, CompileError> {
     let mut num = String::new();
-    while let Some(ch) = self.current() {
+    while let Some(ch) = self.peek() {
       if ch.is_numeric() {
         num.push(ch);
         self.next();
@@ -61,7 +59,7 @@ impl Lexer {
 
   fn read_identifier(&mut self) -> String {
     let mut id = String::new();
-    while let Some(ch) = self.current() {
+    while let Some(ch) = self.peek() {
       if ch.is_alphanumeric() || ch == '_' {
         id.push(ch);
         self.next();
@@ -75,7 +73,7 @@ impl Lexer {
   pub fn next_token(&mut self) -> Result<Token, CompileError> {
     self.skip_whitespace();
 
-    match self.current() {
+    match self.peek() {
       None => Ok(Token::Eof),
       Some(ch) => match ch {
         '+' => {
