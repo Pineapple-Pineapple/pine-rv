@@ -2,6 +2,8 @@ use std::env;
 use std::fs;
 use std::process;
 
+use riscv_compiler::compile;
+
 fn main() {
   let args: Vec<String> = env::args().collect();
 
@@ -26,7 +28,13 @@ fn main() {
   };
 
   println!("Compiling {}", input_path);
-  let asm = "TODO";
+  let asm = match compile(src.as_str()) {
+    Ok(asm) => asm,
+    Err(e) => {
+      eprintln!("{}", e);
+      process::exit(1);
+    }
+  };
 
   let output_path = input_path.strip_suffix(".pine").unwrap().to_string() + ".s";
 
