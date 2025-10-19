@@ -20,6 +20,7 @@ pub enum Token {
   Bang,
   Print,
   PrintLn,
+  Comment,
   Exit,
   Eof,
 }
@@ -55,12 +56,26 @@ impl Lexer {
     self.pos += 1;
   }
 
+  fn skip_comment(&mut self) {
+    self.next();
+    while let Some(ch) = self.peek() {
+      if ch == '\n' {
+        break;
+      }
+      self.next();
+    }
+  }
+
   fn skip_whitespace(&mut self) {
     while let Some(ch) = self.peek() {
-      if ch.is_whitespace() {
-        self.next();
-      } else {
-        break;
+      match ch {
+        ch if ch.is_whitespace() => {
+          self.next();
+        }
+        '#' => {
+          self.skip_comment();
+        }
+        _ => break,
       }
     }
   }
