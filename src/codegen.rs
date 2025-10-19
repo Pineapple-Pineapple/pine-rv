@@ -23,6 +23,11 @@ impl CodeGen {
     }
   }
 
+  #[inline]
+  fn nl(&mut self) {
+    self.output.push(String::new());
+  }
+
   fn alloc_reg(&mut self) -> String {
     let reg = match self.reg_counter {
       0 => "t0",
@@ -43,22 +48,22 @@ impl CodeGen {
     self.output.push("  .globl main".to_string());
     self.output.push("main:".to_string());
     self.output.push("  addi sp, sp, -128 # Set up stack frame".to_string());
+    self.nl();
 
     for stmt in stmts {
       self.gen_stmt(stmt);
+      self.nl();
     }
 
-    self.output.push("".to_string());
     self.output.push("  # Exit with code 0".to_string());
     self.output.push("  li a1, 0 # Exit code 0".to_string());
     self.output.push("  li a0, 17 # Syscall 17: exit2".to_string());
     self.output.push("  ecall".to_string());
 
     let mut final_out = Vec::new();
-    final_out.push("".to_string());
     final_out.push("  .data".to_string());
     self.gen_strings(&mut final_out);
-    final_out.push("".to_string());
+    final_out.push(String::new());
     final_out.append(&mut self.output);
 
     final_out.join("\n")
@@ -76,7 +81,6 @@ impl CodeGen {
         }
         let offset = *self.vars.get(var).unwrap();
         self.output.push(format!("  sw {}, {}(sp) # Store variable {}", reg, offset, var));
-        self.output.push("".to_string());
       }
       Stmt::Exit(code) => {
         if let Some(expr) = code {
@@ -88,7 +92,6 @@ impl CodeGen {
         }
 
         self.output.push("  ecall".to_string());
-        self.output.push("".to_string());
       }
       Stmt::Print { expr } => self.gen_print(expr, false),
       Stmt::PrintLn { expr } => match expr {
@@ -145,8 +148,6 @@ impl CodeGen {
       self.output.push("  li a0, 11 # Syscall 11: print_character".to_string());
       self.output.push("  ecall".to_string());
     }
-
-    self.output.push("".to_string());
   }
 
   fn ensure_string_label(&mut self, s: &String) -> String {
