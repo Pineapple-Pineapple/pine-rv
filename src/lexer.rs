@@ -33,6 +33,19 @@ impl Lexer {
     Lexer { input: input.chars().collect(), pos: 0 }
   }
 
+  pub fn tokenize(&mut self) -> Result<Vec<Token>, CompileError> {
+    let mut tokens = Vec::new();
+    loop {
+      let token = self.next_token()?;
+      if token == Token::Eof {
+        tokens.push(token);
+        break;
+      }
+      tokens.push(token);
+    }
+    Ok(tokens)
+  }
+
   fn peek(&self) -> Option<char> {
     if self.pos < self.input.len() { Some(self.input[self.pos]) } else { None }
   }
@@ -110,7 +123,7 @@ impl Lexer {
     Err(CompileError::LexError("Unterminated string literal".to_string()))
   }
 
-  pub fn next_token(&mut self) -> Result<Token, CompileError> {
+  fn next_token(&mut self) -> Result<Token, CompileError> {
     self.skip_whitespace();
 
     match self.peek() {
