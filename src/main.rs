@@ -31,7 +31,7 @@ struct Args {
   #[arg(long, value_name = "FILE")]
   dump_tokens: Option<PathBuf>,
 
-  /// Dump AST to file
+  /// Dump AST and variable types to file
   #[arg(long, value_name = "FILE")]
   dump_ast: Option<PathBuf>,
 }
@@ -85,7 +85,7 @@ fn main() {
   }
 
   let mut parser = Parser::new(tokens);
-  let ast = match parser.parse() {
+  let (ast, var_types) = match parser.parse() {
     Ok(ast) => ast,
     Err(e) => {
       eprintln!("{}", e);
@@ -98,11 +98,11 @@ fn main() {
   }
 
   if let Some(ast_file) = &args.dump_ast {
-    let ast_output = format!("{:#?}", ast);
+    let ast_output = format!("AST:\n{:#?}\n\nVariable Types:\n{:#?}", ast, var_types);
     match fs::write(ast_file, ast_output) {
       Ok(_) => {
         if args.verbose {
-          println!("AST dumped to '{}'", ast_file.display());
+          println!("AST and variable types dumped to '{}'", ast_file.display());
         }
       }
       Err(e) => {

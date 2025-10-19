@@ -80,12 +80,12 @@ impl Parser {
     Parser { tokens, pos: 0, var_types: HashMap::new() }
   }
 
-  pub fn parse(&mut self) -> Result<Vec<Stmt>, CompileError> {
+  pub fn parse(&mut self) -> Result<(Vec<Stmt>, HashMap<String, Type>), CompileError> {
     let mut stmts = Vec::new();
     while self.peek() != &Token::Eof {
       stmts.push(self.parse_statement()?);
     }
-    Ok(stmts)
+    Ok((stmts, self.var_types.clone()))
   }
 
   fn peek(&self) -> &Token {

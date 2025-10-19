@@ -1,10 +1,11 @@
 use std::collections::HashMap;
 
-use crate::parser::{BinOp, Expr, Stmt};
+use crate::parser::{BinOp, Expr, Stmt, Type};
 
 pub struct CodeGen {
   strings: HashMap<String, String>,
   vars: HashMap<String, i32>,
+  var_types: HashMap<String, Type>,
   var_offset: i32,
   output: Vec<String>,
   reg_counter: usize,
@@ -15,6 +16,7 @@ impl CodeGen {
     CodeGen {
       strings: HashMap::new(),
       vars: HashMap::new(),
+      var_types: HashMap::new(),
       var_offset: 0,
       output: Vec::new(),
       reg_counter: 0,
@@ -66,6 +68,8 @@ impl CodeGen {
     match stmt {
       Stmt::Assign { var, expr } => {
         let reg = self.gen_expr(expr);
+        let expr_type = self.infer_type(expr);
+        self.var_types.insert(var.clone(), expr_type);
         if !self.vars.contains_key(var) {
           self.vars.insert(var.clone(), self.var_offset);
           self.var_offset += 4;
@@ -91,18 +95,39 @@ impl CodeGen {
     }
   }
 
-  fn gen_print(&mut self, expr: &Expr, newline: bool) {
+  fn infer_type(&mut self, expr: &Expr) -> Type {
     match expr {
-      Expr::Int(_) | Expr::Var(_) | Expr::BinOp { .. } => {
+      Expr::Int(_) => Type::Int,
+      Expr::String(_) => Type::String,
+      Expr::Var(name) => self
+        .var_types
+        .get(name)
+        .cloned()
+        .unwrap_or_else(|| panic!("Compiler: Variable '{}' type not tracked", name)),
+      Expr::BinOp { .. } => Type::Int,
+    }
+  }
+
+  fn gen_print(&mut self, expr: &Expr, newline: bool) {
+    let expr_type = self.infer_type(expr);
+    match expr_type {
+      Type::String => {
+        if let Expr::String(s) = expr {
+          let label = self.ensure_string_label(s);
+          self.output.push(format!("  la a1, {} # Load string {}", label, Self::escape_asciz(s)));
+          self.output.push("  li a0, 4 # Syscall 4: print_string".to_string());
+          self.output.push("  ecall".to_string());
+        } else if let Expr::Var(name) = expr {
+          let reg = self.gen_expr(expr);
+          self.output.push(format!("  mv a1, {} # Load string from variable {}", reg, name));
+          self.output.push("  li a0, 4 # Syscall 4: print_string".to_string());
+          self.output.push("  ecall".to_string());
+        }
+      }
+      Type::Int => {
         let reg = self.gen_expr(expr);
         self.output.push(format!("  mv a1, {} # Expression to print", reg));
         self.output.push("  li a0, 1 # Syscall 1: print_int".to_string());
-        self.output.push("  ecall".to_string());
-      }
-      Expr::String(s) => {
-        let label = self.ensure_string_label(s);
-        self.output.push(format!("  la a1, {} # Load string {}", label, Self::escape_asciz(s)));
-        self.output.push("  li a0, 4 # Syscall 4: print_string".to_string());
         self.output.push("  ecall".to_string());
       }
     }
@@ -166,7 +191,7 @@ impl CodeGen {
           self.output.push(format!("  lw {}, {}(sp) # Load variable {}", reg, offset, var));
           reg
         } else {
-          panic!("Unknown variable '{}'", var);
+          panic!("Compiler: Variable '{}' not stored", var);
         }
       }
       Expr::BinOp { op, left, right } => {
