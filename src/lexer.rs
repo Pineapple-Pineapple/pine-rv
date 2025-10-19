@@ -17,6 +17,7 @@ pub enum Token {
   GT,
   LTE,
   GTE,
+  Bang,
   Print,
   PrintLn,
   Exit,
@@ -160,6 +161,10 @@ impl Lexer {
         ')' => {
           self.next();
           Ok(Token::RParen)
+        }
+        '!' => {
+          self.next();
+          Ok(Token::Bang)
         }
         '<' => {
           self.next();

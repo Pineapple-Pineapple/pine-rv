@@ -13,6 +13,7 @@ pub enum Expr {
   Var(String),
   String(String),
   BinOp { op: BinOp, left: Box<Expr>, right: Box<Expr> },
+  UnaryOp { op: UnaryOp, expr: Box<Expr> },
 }
 
 impl Expr {
@@ -37,8 +38,26 @@ impl Expr {
 
         Ok(Type::Int)
       }
+      Expr::UnaryOp { op, expr } => {
+        let expr_type = expr.get_type(var_types)?;
+
+        if expr_type != Type::Int {
+          return Err(CompileError::ParseError(format!(
+            "Unary operation {:?} requires an integer operand",
+            op
+          )));
+        }
+
+        Ok(Type::Int)
+      }
     }
   }
+}
+
+#[derive(Debug)]
+pub enum UnaryOp {
+  Not,
+  Neg,
 }
 
 #[derive(Debug)]
@@ -59,6 +78,7 @@ enum Prec {
   Comp,
   AddSub,
   MulDiv,
+  Unary,
 }
 
 #[derive(Debug)]
@@ -166,11 +186,30 @@ impl Parser {
   }
 
   fn parse_expr(&mut self) -> Result<Expr, CompileError> {
-    self.parse_expr_proc(Prec::Lowest)
+    match self.peek() {
+      Token::Bang | Token::Minus => self.parse_unary(),
+      _ => self.parse_expr_prec(Prec::Lowest),
+    }
   }
 
-  fn parse_expr_proc(&mut self, prec: Prec) -> Result<Expr, CompileError> {
-    let mut left = self.parse_primary()?;
+  fn parse_unary(&mut self) -> Result<Expr, CompileError> {
+    self.parse_expr_prec(Prec::Lowest)
+  }
+
+  fn parse_expr_prec(&mut self, prec: Prec) -> Result<Expr, CompileError> {
+    let mut left = match self.peek() {
+      Token::Bang => {
+        self.next();
+        let expr = self.parse_expr_prec(Prec::Unary)?;
+        Expr::UnaryOp { op: UnaryOp::Not, expr: Box::new(expr) }
+      }
+      Token::Minus => {
+        self.next();
+        let expr = self.parse_expr_prec(Prec::Unary)?;
+        Expr::UnaryOp { op: UnaryOp::Neg, expr: Box::new(expr) }
+      }
+      _ => self.parse_primary()?,
+    };
 
     while Self::precedence(self.peek()) > prec {
       let op_token = self.peek().clone();
@@ -188,7 +227,7 @@ impl Parser {
 
       self.next();
 
-      let right = self.parse_expr_proc(Self::precedence(&op_token))?;
+      let right = self.parse_expr_prec(Self::precedence(&op_token))?;
 
       let is_comp = matches!(op, BinOp::GT | BinOp::GTE | BinOp::LT | BinOp::LTE);
       let is_next_comp = matches!(self.peek(), Token::GT | Token::GTE | Token::LT | Token::LTE);
@@ -220,7 +259,7 @@ impl Parser {
         if self.peek() == &Token::RParen {
           self.next();
         } else {
-          return Err(CompileError::ParseError("Expected ')".to_string()));
+          return Err(CompileError::ParseError("Expected ')'".to_string()));
         }
         Ok(expr)
       }

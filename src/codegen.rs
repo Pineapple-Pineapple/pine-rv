@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::parser::{BinOp, Expr, Stmt, Type};
+use crate::parser::{BinOp, Expr, Stmt, Type, UnaryOp};
 
 pub struct CodeGen {
   strings: HashMap<String, String>,
@@ -17,7 +17,7 @@ impl CodeGen {
       strings: HashMap::new(),
       vars: HashMap::new(),
       var_types: HashMap::new(),
-      var_offset: 0,
+      var_offset: -2048, // NOTE: smallest offset on venus is -2048
       output: Vec::new(),
       reg_counter: 0,
     }
@@ -105,6 +105,7 @@ impl CodeGen {
         .cloned()
         .unwrap_or_else(|| panic!("Compiler: Variable '{}' type not tracked", name)),
       Expr::BinOp { .. } => Type::Int,
+      Expr::UnaryOp { .. } => Type::Int,
     }
   }
 
@@ -234,6 +235,20 @@ impl CodeGen {
         let reg = self.alloc_reg();
         let label = self.ensure_string_label(s);
         self.output.push(format!("  la {}, {} # Store string {:?}", reg, label, Self::escape_asciz(s)));
+
+        reg
+      }
+      Expr::UnaryOp { op, expr } => {
+        let reg = self.gen_expr(expr);
+        match op {
+          UnaryOp::Not => {
+            self.output.push(format!("  sltiu {}, {}, 0", reg, reg));
+            self.output.push(format!("  xori {}, {}, 1", reg, reg));
+          }
+          UnaryOp::Neg => {
+            self.output.push(format!("  sub {}, x0, {}", reg, reg));
+          }
+        }
 
         reg
       }
