@@ -1,4 +1,7 @@
-use crate::{error::CompileError, lexer::Token};
+use crate::{
+  error::{CompileError, Span},
+  lexer::{Token, TokenKind},
+};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -24,16 +27,16 @@ impl Expr {
       Expr::Var(name) => var_types
         .get(name)
         .cloned()
-        .ok_or_else(|| CompileError::ParseError(format!("Unknown variable: {}", name))),
+        .ok_or_else(|| CompileError::ParseError { msg: format!("Unknown variable: {}", name), span: None }),
       Expr::BinOp { op, left, right } => {
         let left_type = left.get_type(var_types)?;
         let right_type = right.get_type(var_types)?;
 
         if left_type != Type::Int || right_type != Type::Int {
-          return Err(CompileError::ParseError(format!(
-            "Binary operation {:?} requires integer operands",
-            op
-          )));
+          return Err(CompileError::ParseError {
+            msg: format!("Binary operation {:?} requires integer operands", op),
+            span: None,
+          });
         }
 
         Ok(Type::Int)
@@ -42,10 +45,10 @@ impl Expr {
         let expr_type = expr.get_type(var_types)?;
 
         if expr_type != Type::Int {
-          return Err(CompileError::ParseError(format!(
-            "Unary operation {:?} requires an integer operand",
-            op
-          )));
+          return Err(CompileError::ParseError {
+            msg: format!("Unary operation {:?} requires an integer operand", op),
+            span: None,
+          });
         }
 
         Ok(Type::Int)
@@ -102,14 +105,15 @@ impl Parser {
 
   pub fn parse(&mut self) -> Result<(Vec<Stmt>, HashMap<String, Type>), CompileError> {
     let mut stmts = Vec::new();
-    while self.peek() != &Token::Eof {
+    while self.peek().kind != TokenKind::Eof {
       stmts.push(self.parse_statement()?);
     }
     Ok((stmts, self.var_types.clone()))
   }
 
   fn peek(&self) -> &Token {
-    self.tokens.get(self.pos).unwrap_or(&Token::Eof)
+    static EOF_TOKEN: Token = Token { kind: TokenKind::Eof, span: Span { line: 0, col: 0, length: 0 } };
+    self.tokens.get(self.pos).unwrap_or(&EOF_TOKEN)
   }
 
   fn next(&mut self) {
@@ -119,32 +123,35 @@ impl Parser {
   }
 
   fn parse_statement(&mut self) -> Result<Stmt, CompileError> {
-    match self.peek() {
-      Token::Ident(name) => {
+    match &self.peek().kind {
+      TokenKind::Ident(name) => {
         let var = name.clone();
         self.next();
-        if self.peek() == &Token::Assign {
+        if self.peek().kind == TokenKind::Assign {
           self.next();
           let expr = self.parse_expr()?;
           let expr_type = expr.get_type(&self.var_types)?;
           self.var_types.insert(var.clone(), expr_type);
-          if self.peek() == &Token::Semicolon {
+          if self.peek().kind == TokenKind::Semicolon {
             self.next();
           }
           Ok(Stmt::Assign { var, expr })
         } else {
-          Err(CompileError::ParseError("Expected '='".to_string()))
+          Err(CompileError::ParseError { msg: "Expected '='".to_string(), span: Some(self.peek().span) })
         }
       }
 
-      Token::Exit => {
+      TokenKind::Exit => {
         self.next();
-        let exit_code = if !matches!(self.peek(), Token::Semicolon | Token::Eof) {
+        let exit_code = if !matches!(self.peek().kind, TokenKind::Semicolon | TokenKind::Eof) {
           let expr = self.parse_expr()?;
           let expr_type = expr.get_type(&self.var_types)?;
 
           if expr_type != Type::Int {
-            return Err(CompileError::ParseError("Exit code must be an integer".to_string()));
+            return Err(CompileError::ParseError {
+              msg: "Exit code must be an integer".to_string(),
+              span: Some(self.peek().span),
+            });
           }
 
           Some(expr)
@@ -152,18 +159,18 @@ impl Parser {
           None
         };
 
-        if self.peek() == &Token::Semicolon {
+        if self.peek().kind == TokenKind::Semicolon {
           self.next();
         }
 
         Ok(Stmt::Exit(exit_code))
       }
 
-      Token::Print | Token::PrintLn => {
-        let is_newline = matches!(self.peek(), Token::PrintLn);
+      TokenKind::Print | TokenKind::PrintLn => {
+        let is_newline = matches!(self.peek().kind, TokenKind::PrintLn);
         self.next();
-        if matches!(self.peek(), Token::Semicolon | Token::Eof) {
-          if self.peek() == &Token::Semicolon {
+        if is_newline && matches!(self.peek().kind, TokenKind::Semicolon | TokenKind::Eof) {
+          if self.peek().kind == TokenKind::Semicolon {
             self.next();
           }
           return Ok(Stmt::PrintLn { expr: None });
@@ -171,29 +178,32 @@ impl Parser {
 
         let expr = self.parse_expr()?;
 
-        if self.peek() == &Token::Semicolon {
+        if self.peek().kind == TokenKind::Semicolon {
           self.next();
         }
 
         if is_newline { Ok(Stmt::PrintLn { expr: Some(expr) }) } else { Ok(Stmt::Print { expr }) }
       }
 
-      _ => Err(CompileError::ParseError(format!("Unexpected token: {:?}", self.peek()))),
+      _ => Err(CompileError::ParseError {
+        msg: format!("Unexpected token: {:?}", self.peek().kind),
+        span: Some(self.peek().span),
+      }),
     }
   }
 
   fn precedence(token: &Token) -> Prec {
-    match token {
-      Token::Star | Token::Slash => Prec::MulDiv,
-      Token::Plus | Token::Minus => Prec::AddSub,
-      Token::LT | Token::LTE | Token::GT | Token::GTE => Prec::Comp,
+    match token.kind {
+      TokenKind::Star | TokenKind::Slash => Prec::MulDiv,
+      TokenKind::Plus | TokenKind::Minus => Prec::AddSub,
+      TokenKind::LT | TokenKind::LTE | TokenKind::GT | TokenKind::GTE => Prec::Comp,
       _ => Prec::Lowest,
     }
   }
 
   fn parse_expr(&mut self) -> Result<Expr, CompileError> {
-    match self.peek() {
-      Token::Bang | Token::Minus => self.parse_unary(),
+    match self.peek().kind {
+      TokenKind::Bang | TokenKind::Minus => self.parse_unary(),
       _ => self.parse_expr_prec(Prec::Lowest),
     }
   }
@@ -203,13 +213,13 @@ impl Parser {
   }
 
   fn parse_expr_prec(&mut self, prec: Prec) -> Result<Expr, CompileError> {
-    let mut left = match self.peek() {
-      Token::Bang => {
+    let mut left = match self.peek().kind {
+      TokenKind::Bang => {
         self.next();
         let expr = self.parse_expr_prec(Prec::Unary)?;
         Expr::UnaryOp { op: UnaryOp::Not, expr: Box::new(expr) }
       }
-      Token::Minus => {
+      TokenKind::Minus => {
         self.next();
         let expr = self.parse_expr_prec(Prec::Unary)?;
         Expr::UnaryOp { op: UnaryOp::Neg, expr: Box::new(expr) }
@@ -218,27 +228,31 @@ impl Parser {
     };
 
     while Self::precedence(self.peek()) > prec {
-      let op_token = self.peek().clone();
-      let op = match op_token {
-        Token::Plus => BinOp::Add,
-        Token::Minus => BinOp::Sub,
-        Token::Star => BinOp::Mul,
-        Token::Slash => BinOp::Div,
-        Token::GT => BinOp::GT,
-        Token::GTE => BinOp::GTE,
-        Token::LT => BinOp::LT,
-        Token::LTE => BinOp::LTE,
+      let op_token = self.peek();
+      let op = match op_token.kind {
+        TokenKind::Plus => BinOp::Add,
+        TokenKind::Minus => BinOp::Sub,
+        TokenKind::Star => BinOp::Mul,
+        TokenKind::Slash => BinOp::Div,
+        TokenKind::GT => BinOp::GT,
+        TokenKind::GTE => BinOp::GTE,
+        TokenKind::LT => BinOp::LT,
+        TokenKind::LTE => BinOp::LTE,
         _ => break,
       };
 
       self.next();
 
-      let right = self.parse_expr_prec(Self::precedence(&op_token))?;
+      let right = self.parse_expr_prec(Self::precedence(self.peek()))?;
 
       let is_comp = matches!(op, BinOp::GT | BinOp::GTE | BinOp::LT | BinOp::LTE);
-      let is_next_comp = matches!(self.peek(), Token::GT | Token::GTE | Token::LT | Token::LTE);
+      let is_next_comp =
+        matches!(self.peek().kind, TokenKind::GT | TokenKind::GTE | TokenKind::LT | TokenKind::LTE);
       if is_comp && is_next_comp {
-        return Err(CompileError::ParseError("Chained comparisons are not allowed".to_string()));
+        return Err(CompileError::ParseError {
+          msg: "Chained comparisons are not allowed".to_string(),
+          span: Some(self.peek().span),
+        });
       }
 
       left = Expr::BinOp { op, left: Box::new(left), right: Box::new(right) };
@@ -248,33 +262,42 @@ impl Parser {
   }
 
   fn parse_primary(&mut self) -> Result<Expr, CompileError> {
-    match self.peek() {
-      Token::Int(n) => {
+    match &self.peek().kind {
+      TokenKind::Int(n) => {
         let val = *n;
         self.next();
         Ok(Expr::Int(val))
       }
-      Token::Ident(name) => {
+      TokenKind::Ident(name) => {
         let var = name.clone();
+        if !self.var_types.contains_key(&var) {
+          return Err(CompileError::ParseError { msg: format!("Variable '{}' not found", var), span: None });
+        };
         self.next();
         Ok(Expr::Var(var))
       }
-      Token::LParen => {
+      TokenKind::LParen => {
         self.next();
         let expr = self.parse_expr()?;
-        if self.peek() == &Token::RParen {
+        if self.peek().kind == TokenKind::RParen {
           self.next();
         } else {
-          return Err(CompileError::ParseError("Expected ')'".to_string()));
+          return Err(CompileError::ParseError {
+            msg: "Expected ')'".to_string(),
+            span: Some(self.peek().span),
+          });
         }
         Ok(expr)
       }
-      Token::String(s) => {
+      TokenKind::String(s) => {
         let val = s.clone();
         self.next();
         Ok(Expr::String(val))
       }
-      _ => Err(CompileError::ParseError(format!("Unexpected token: {:?}", self.peek()))),
+      _ => Err(CompileError::ParseError {
+        msg: format!("Unexpected token: {:?}", self.peek().kind),
+        span: Some(self.peek().span),
+      }),
     }
   }
 }

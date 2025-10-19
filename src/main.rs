@@ -60,7 +60,7 @@ fn main() {
   let tokens = match lexer.tokenize() {
     Ok(tokens) => tokens,
     Err(e) => {
-      eprintln!("{}", e);
+      eprintln!("{}", e.display_with_source(&src));
       process::exit(1);
     }
   };
@@ -88,7 +88,7 @@ fn main() {
   let (ast, var_types) = match parser.parse() {
     Ok(ast) => ast,
     Err(e) => {
-      eprintln!("{}", e);
+      eprintln!("{}", e.display_with_source(&src));
       process::exit(1);
     }
   };
