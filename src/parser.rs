@@ -85,7 +85,7 @@ enum Prec {
 pub enum Stmt {
   Assign { var: String, expr: Expr },
   Print { expr: Expr },
-  PrintLn { expr: Expr },
+  PrintLn { expr: Option<Expr> },
   Exit(Option<Expr>),
 }
 
@@ -162,6 +162,12 @@ impl Parser {
       Token::Print | Token::PrintLn => {
         let is_newline = matches!(self.peek(), Token::PrintLn);
         self.next();
+        if matches!(self.peek(), Token::Semicolon | Token::Eof) {
+          if self.peek() == &Token::Semicolon {
+            self.next();
+          }
+          return Ok(Stmt::PrintLn { expr: None });
+        }
 
         let expr = self.parse_expr()?;
 
@@ -169,7 +175,7 @@ impl Parser {
           self.next();
         }
 
-        if is_newline { Ok(Stmt::PrintLn { expr }) } else { Ok(Stmt::Print { expr }) }
+        if is_newline { Ok(Stmt::PrintLn { expr: Some(expr) }) } else { Ok(Stmt::Print { expr }) }
       }
 
       _ => Err(CompileError::ParseError(format!("Unexpected token: {:?}", self.peek()))),

@@ -91,7 +91,14 @@ impl CodeGen {
         self.output.push("".to_string());
       }
       Stmt::Print { expr } => self.gen_print(expr, false),
-      Stmt::PrintLn { expr } => self.gen_print(expr, true),
+      Stmt::PrintLn { expr } => match expr {
+        Some(expr) => self.gen_print(expr, true),
+        None => {
+          self.output.push("  li a1, '\\n' # Load newline char".to_string());
+          self.output.push("  li a0, 11 # Syscall 11: print_character".to_string());
+          self.output.push("  ecall".to_string());
+        }
+      },
     }
   }
 
