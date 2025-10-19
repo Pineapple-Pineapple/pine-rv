@@ -26,6 +26,14 @@ struct Args {
   /// Verbose output
   #[arg(short, long)]
   verbose: bool,
+
+  /// Dump lexer tokens to file
+  #[arg(long, value_name = "FILE")]
+  dump_tokens: Option<PathBuf>,
+
+  /// Dump AST to file
+  #[arg(long, value_name = "FILE")]
+  dump_ast: Option<PathBuf>,
 }
 
 fn main() {
@@ -61,6 +69,21 @@ fn main() {
     println!("Lexing complete: {} tokens", tokens.len());
   }
 
+  if let Some(token_file) = &args.dump_tokens {
+    let token_output = format!("{:#?}", tokens);
+    match fs::write(token_file, token_output) {
+      Ok(_) => {
+        if args.verbose {
+          println!("Tokens dumped to '{}'", token_file.display());
+        }
+      }
+      Err(e) => {
+        eprintln!("Error writing tokens to '{}': {}", token_file.display(), e);
+        process::exit(1);
+      }
+    }
+  }
+
   let mut parser = Parser::new(tokens);
   let ast = match parser.parse() {
     Ok(ast) => ast,
@@ -72,6 +95,21 @@ fn main() {
 
   if args.verbose {
     println!("Parsing complete: {} statements", ast.len());
+  }
+
+  if let Some(ast_file) = &args.dump_ast {
+    let ast_output = format!("{:#?}", ast);
+    match fs::write(ast_file, ast_output) {
+      Ok(_) => {
+        if args.verbose {
+          println!("AST dumped to '{}'", ast_file.display());
+        }
+      }
+      Err(e) => {
+        eprintln!("Error writing AST to '{}': {}", ast_file.display(), e);
+        process::exit(1);
+      }
+    }
   }
 
   let mut codegen = CodeGen::new();
