@@ -1,4 +1,11 @@
 use crate::{error::CompileError, lexer::Token};
+use std::collections::HashMap;
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Type {
+  Int,
+  String,
+}
 
 #[derive(Debug)]
 pub enum Expr {
@@ -6,6 +13,32 @@ pub enum Expr {
   Var(String),
   String(String),
   BinOp { op: BinOp, left: Box<Expr>, right: Box<Expr> },
+}
+
+impl Expr {
+  pub fn get_type(&self, var_types: &HashMap<String, Type>) -> Result<Type, CompileError> {
+    match self {
+      Expr::Int(_) => Ok(Type::Int),
+      Expr::String(_) => Ok(Type::String),
+      Expr::Var(name) => var_types
+        .get(name)
+        .cloned()
+        .ok_or_else(|| CompileError::ParseError(format!("Unknown variable: {}", name))),
+      Expr::BinOp { op, left, right } => {
+        let left_type = left.get_type(var_types)?;
+        let right_type = right.get_type(var_types)?;
+
+        if left_type != Type::Int || right_type != Type::Int {
+          return Err(CompileError::ParseError(format!(
+            "Binary operation {:?} requires integer operands",
+            op
+          )));
+        }
+
+        Ok(Type::Int)
+      }
+    }
+  }
 }
 
 #[derive(Debug)]
@@ -39,11 +72,12 @@ pub enum Stmt {
 pub struct Parser {
   tokens: Vec<Token>,
   pos: usize,
+  var_types: HashMap<String, Type>,
 }
 
 impl Parser {
   pub fn new(tokens: Vec<Token>) -> Self {
-    Parser { tokens, pos: 0 }
+    Parser { tokens, pos: 0, var_types: HashMap::new() }
   }
 
   pub fn parse(&mut self) -> Result<Vec<Stmt>, CompileError> {
@@ -72,6 +106,8 @@ impl Parser {
         if self.peek() == &Token::Assign {
           self.next();
           let expr = self.parse_expr()?;
+          let expr_type = expr.get_type(&self.var_types)?;
+          self.var_types.insert(var.clone(), expr_type);
           if self.peek() == &Token::Semicolon {
             self.next();
           }
@@ -83,8 +119,18 @@ impl Parser {
 
       Token::Exit => {
         self.next();
-        let exit_code =
-          if !matches!(self.peek(), Token::Semicolon | Token::Eof) { Some(self.parse_expr()?) } else { None };
+        let exit_code = if !matches!(self.peek(), Token::Semicolon | Token::Eof) {
+          let expr = self.parse_expr()?;
+          let expr_type = expr.get_type(&self.var_types)?;
+
+          if expr_type != Type::Int {
+            return Err(CompileError::ParseError("Exit code must be an integer".to_string()));
+          }
+
+          Some(expr)
+        } else {
+          None
+        };
 
         if self.peek() == &Token::Semicolon {
           self.next();
