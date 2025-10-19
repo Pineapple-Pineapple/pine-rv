@@ -250,8 +250,7 @@ impl CodeGen {
         let reg = self.gen_expr(expr);
         match op {
           UnaryOp::Not => {
-            self.output.push(format!("  sltiu {}, {}, 0", reg, reg));
-            self.output.push(format!("  xori {}, {}, 1", reg, reg));
+            self.output.push(format!("  sltiu {}, {}, 1", reg, reg));
           }
           UnaryOp::Neg => {
             self.output.push(format!("  sub {}, x0, {}", reg, reg));
