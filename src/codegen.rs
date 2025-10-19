@@ -235,6 +235,30 @@ impl CodeGen {
             self.output.push(format!("  slt {}, {}, {} # left < right", result_reg, left_reg, right_reg));
             self.output.push(format!("  xori {}, {}, 1 # For >=", result_reg, result_reg))
           }
+          BinOp::Eq => {
+            self
+              .output
+              .push(format!("  sub {}, {}, {} # diff = left - right", result_reg, left_reg, right_reg));
+            self.output.push(format!("  sltu {}, x0, {} # (diff != 0)", result_reg, result_reg));
+            self
+              .output
+              .push(format!("  xori {}, {}, 1 # !(diff != 0) -> (diff == 0)", result_reg, result_reg));
+          }
+
+          BinOp::Neq => {
+            self
+              .output
+              .push(format!("  sub {}, {}, {} # diff = left - right", result_reg, left_reg, right_reg));
+            self.output.push(format!("  sltu {}, x0, {} # diff != 0", result_reg, result_reg));
+          }
+          BinOp::AND => {
+            self.output.push(format!("  and {}, {}, {} # Logical and", result_reg, left_reg, right_reg));
+            self.output.push(format!("  sltu {}, x0, {} # Normalize result", result_reg, result_reg));
+          }
+          BinOp::OR => {
+            self.output.push(format!("  or {}, {}, {} # Logical or", result_reg, left_reg, right_reg));
+            self.output.push(format!("  sltu {}, x0, {} # Normalize result", result_reg, result_reg));
+          }
         }
 
         result_reg

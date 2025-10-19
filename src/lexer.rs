@@ -16,6 +16,12 @@ pub enum TokenKind {
   Star,
   Slash,
   Assign,
+  EqEq,
+  BangEq,
+  AndAnd,
+  OrOr,
+  And,
+  Or,
   Semicolon,
   LParen,
   RParen,
@@ -206,7 +212,39 @@ impl Lexer {
           }
           '=' => {
             self.next();
-            (TokenKind::Assign, 1)
+            if let Some('=') = self.peek() {
+              self.next();
+              (TokenKind::EqEq, 2)
+            } else {
+              (TokenKind::Assign, 1)
+            }
+          }
+          '&' => {
+            self.next();
+            if let Some('&') = self.peek() {
+              self.next();
+              (TokenKind::AndAnd, 2)
+            } else {
+              (TokenKind::And, 1)
+            }
+          }
+          '|' => {
+            self.next();
+            if let Some('|') = self.peek() {
+              self.next();
+              (TokenKind::OrOr, 2)
+            } else {
+              (TokenKind::Or, 1)
+            }
+          }
+          '!' => {
+            self.next();
+            if let Some('=') = self.peek() {
+              self.next();
+              (TokenKind::BangEq, 2)
+            } else {
+              (TokenKind::Bang, 1)
+            }
           }
           ';' => {
             self.next();
@@ -219,10 +257,6 @@ impl Lexer {
           ')' => {
             self.next();
             (TokenKind::RParen, 1)
-          }
-          '!' => {
-            self.next();
-            (TokenKind::Bang, 1)
           }
           '<' => {
             self.next();

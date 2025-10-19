@@ -73,15 +73,22 @@ pub enum BinOp {
   LT,
   GTE,
   LTE,
+  Eq,
+  Neq,
+  AND,
+  OR,
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum Prec {
-  Lowest,
-  Comp,
-  AddSub,
-  MulDiv,
-  Unary,
+  Lowest, // default
+  Or,     // ||
+  And,    // &&
+  Eq,     // ==, !=
+  Comp,   // <, <=, >, >=
+  AddSub, // +, -
+  MulDiv, // *, /
+  Unary,  // !, -
 }
 
 #[derive(Debug)]
@@ -197,6 +204,9 @@ impl Parser {
       TokenKind::Star | TokenKind::Slash => Prec::MulDiv,
       TokenKind::Plus | TokenKind::Minus => Prec::AddSub,
       TokenKind::LT | TokenKind::LTE | TokenKind::GT | TokenKind::GTE => Prec::Comp,
+      TokenKind::EqEq | TokenKind::BangEq => Prec::Eq,
+      TokenKind::AndAnd => Prec::And,
+      TokenKind::OrOr => Prec::Or,
       _ => Prec::Lowest,
     }
   }
@@ -227,8 +237,14 @@ impl Parser {
       _ => self.parse_primary()?,
     };
 
-    while Self::precedence(self.peek()) > prec {
+    loop {
       let op_token = self.peek();
+      let next_prec = Self::precedence(op_token);
+
+      if next_prec <= prec {
+        break;
+      }
+
       let op = match op_token.kind {
         TokenKind::Plus => BinOp::Add,
         TokenKind::Minus => BinOp::Sub,
@@ -238,17 +254,20 @@ impl Parser {
         TokenKind::GTE => BinOp::GTE,
         TokenKind::LT => BinOp::LT,
         TokenKind::LTE => BinOp::LTE,
+        TokenKind::EqEq => BinOp::Eq,
+        TokenKind::BangEq => BinOp::Neq,
+        TokenKind::AndAnd => BinOp::AND,
+        TokenKind::OrOr => BinOp::OR,
         _ => break,
       };
 
       self.next();
 
-      let right = self.parse_expr_prec(Self::precedence(self.peek()))?;
+      let right = self.parse_expr_prec(next_prec)?;
 
-      let is_comp = matches!(op, BinOp::GT | BinOp::GTE | BinOp::LT | BinOp::LTE);
-      let is_next_comp =
-        matches!(self.peek().kind, TokenKind::GT | TokenKind::GTE | TokenKind::LT | TokenKind::LTE);
-      if is_comp && is_next_comp {
+      if matches!(op, BinOp::GT | BinOp::GTE | BinOp::LT | BinOp::LTE)
+        && matches!(self.peek().kind, TokenKind::GT | TokenKind::GTE | TokenKind::LT | TokenKind::LTE)
+      {
         return Err(CompileError::ParseError {
           msg: "Chained comparisons are not allowed".to_string(),
           span: Some(self.peek().span),
