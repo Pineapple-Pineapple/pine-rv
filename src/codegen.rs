@@ -17,7 +17,7 @@ impl CodeGen {
       strings: HashMap::new(),
       vars: HashMap::new(),
       var_types: HashMap::new(),
-      var_offset: -2048, // NOTE: smallest offset on venus is -2048
+      var_offset: 0,
       output: Vec::new(),
       reg_counter: 0,
     }
