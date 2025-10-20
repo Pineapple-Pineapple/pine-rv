@@ -4,10 +4,10 @@ use std::process;
 
 use clap::Parser as ClapParser;
 
-use riscv_compiler::{codegen::CodeGen, lexer::Lexer, parser::Parser};
+use pine_rv::{codegen::CodeGen, lexer::Lexer, parser::Parser};
 
 #[derive(ClapParser, Debug)]
-#[command(name = "riscv-compiler")]
+#[command(name = "pine-rv")]
 #[command(about = "A compiler for the Pine language targeting RISC-V assembly", long_about = None)]
 #[command(version)]
 struct Args {
