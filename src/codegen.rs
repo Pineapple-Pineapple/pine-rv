@@ -8,8 +8,9 @@ pub struct CodeGen {
   var_types: HashMap<String, Type>,
   var_offset: i32,
   output: Vec<String>,
-  reg_counter: usize,
+  reg_pool: Vec<String>,
   while_counter: usize,
+  temp_stack_offset: i32,
 }
 
 impl CodeGen {
@@ -20,8 +21,9 @@ impl CodeGen {
       var_types: HashMap::new(),
       var_offset: 0,
       output: Vec::new(),
-      reg_counter: 0,
+      reg_pool: ["t0", "t1", "t2", "t3", "t4", "t5", "t6"].iter().map(|&r| r.to_string()).collect(),
       while_counter: 0,
+      temp_stack_offset: 128,
     }
   }
 
@@ -31,25 +33,26 @@ impl CodeGen {
   }
 
   fn alloc_reg(&mut self) -> String {
-    let reg = match self.reg_counter {
-      0 => "t0",
-      1 => "t1",
-      2 => "t2",
-      3 => "t3",
-      4 => "t4",
-      5 => "t5",
-      6 => "t6",
-      _ => "t0",
-    };
-    self.reg_counter = (self.reg_counter + 1) % 7;
-    reg.to_string()
+    if let Some(reg) = self.reg_pool.pop() {
+      reg
+    } else {
+      let victim = "t0".to_string();
+      let stack_loc = self.temp_stack_offset;
+      self.temp_stack_offset += 4;
+      self.output.push(format!("  sw {}, {}(sp) # Spill {} to stack", victim, stack_loc, victim));
+      victim
+    }
+  }
+
+  fn free_reg(&mut self, reg: String) {
+    self.reg_pool.push(reg);
   }
 
   pub fn generate(&mut self, stmts: &Vec<Stmt>) -> String {
     self.output.push("  .text".to_string());
     self.output.push("  .globl main".to_string());
     self.output.push("main:".to_string());
-    self.output.push("  addi sp, sp, -128 # Set up stack frame".to_string());
+    self.output.push("  addi sp, sp, -512 # Set up stack frame".to_string());
     self.nl();
 
     for stmt in stmts {
@@ -83,12 +86,14 @@ impl CodeGen {
         }
         let offset = *self.vars.get(var).unwrap();
         self.output.push(format!("  sw {}, {}(sp) # Store variable {}", reg, offset, var));
+        self.free_reg(reg);
       }
       Stmt::Exit(code) => {
         if let Some(expr) = code {
           let reg = self.gen_expr(expr);
           self.output.push(format!("  mv a1, {} # exit code", reg));
           self.output.push("  li a0, 17 # Syscall 17: exit2".to_string());
+          self.free_reg(reg);
         } else {
           self.output.push("  li a0, 10 # Syscall 10: exit".to_string());
         }
@@ -112,6 +117,7 @@ impl CodeGen {
         self.output.push(format!("{}:", while_start));
         let reg = self.gen_expr(condition);
         self.output.push(format!("  beq {}, x0, {}", reg, while_end));
+        self.free_reg(reg);
         for stmt in body {
           self.gen_stmt(stmt);
         }
@@ -149,6 +155,7 @@ impl CodeGen {
           self.output.push(format!("  mv a1, {} # Load string from variable {}", reg, name));
           self.output.push("  li a0, 4 # Syscall 4: print_string".to_string());
           self.output.push("  ecall".to_string());
+          self.free_reg(reg);
         }
       }
       Type::Int => {
@@ -156,6 +163,7 @@ impl CodeGen {
         self.output.push(format!("  mv a1, {} # Expression to print", reg));
         self.output.push("  li a0, 1 # Syscall 1: print_int".to_string());
         self.output.push("  ecall".to_string());
+        self.free_reg(reg);
       }
     }
 
@@ -282,6 +290,9 @@ impl CodeGen {
             self.output.push(format!("  sltu {}, x0, {} # Normalize result", result_reg, result_reg));
           }
         }
+
+        self.free_reg(left_reg);
+        self.free_reg(right_reg);
 
         result_reg
       }
