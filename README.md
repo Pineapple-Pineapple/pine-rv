@@ -1,6 +1,6 @@
 # Pine Language Compiler
 
-A lightweight compiler for the Pine programming language that targets RISC-V assembly. Written in Rust with a focus on simplicity and educational value
+A lightweight compiler for my own programming (called Pine) language that targets RISC-V assembly. Written in Rust with a focus on simplicity and educational value
 
 ## Overview
 Pine is a simple imperative language designed by me to learn how compilers, lexers, and parsers work and RISC-V assembly programming. The compiler can perform lexical analysis, parsing (with type checking), and can generate RISC-V assembly code.
