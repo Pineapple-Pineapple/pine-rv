@@ -25,6 +25,8 @@ pub enum TokenKind {
   Semicolon,
   LParen,
   RParen,
+  LBrace,
+  RBrace,
   LT,
   GT,
   LTE,
@@ -32,6 +34,7 @@ pub enum TokenKind {
   Bang,
   Print,
   PrintLn,
+  While,
   Comment,
   Exit,
   Eof,
@@ -258,6 +261,14 @@ impl Lexer {
             self.next();
             (TokenKind::RParen, 1)
           }
+          '{' => {
+            self.next();
+            (TokenKind::LBrace, 1)
+          }
+          '}' => {
+            self.next();
+            (TokenKind::RBrace, 1)
+          }
           '<' => {
             self.next();
             if let Some('=') = self.peek() {
@@ -291,6 +302,7 @@ impl Lexer {
               "exit" => TokenKind::Exit,
               "print" => TokenKind::Print,
               "println" => TokenKind::PrintLn,
+              "while" => TokenKind::While,
               _ => TokenKind::Ident(id),
             };
             (kind, len)

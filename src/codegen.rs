@@ -9,6 +9,7 @@ pub struct CodeGen {
   var_offset: i32,
   output: Vec<String>,
   reg_counter: usize,
+  while_counter: usize,
 }
 
 impl CodeGen {
@@ -20,6 +21,7 @@ impl CodeGen {
       var_offset: 0,
       output: Vec::new(),
       reg_counter: 0,
+      while_counter: 0,
     }
   }
 
@@ -102,6 +104,20 @@ impl CodeGen {
           self.output.push("  ecall".to_string());
         }
       },
+      Stmt::While { condition, body } => {
+        let while_count = self.while_counter;
+        let while_start = format!("W{}_start", while_count);
+        let while_end = format!("W{}_end", while_count);
+        self.while_counter += 1;
+        self.output.push(format!("{}:", while_start));
+        let reg = self.gen_expr(condition);
+        self.output.push(format!("  beq {}, x0, {}", reg, while_end));
+        for stmt in body {
+          self.gen_stmt(stmt);
+        }
+        self.output.push(format!("  j {}", while_start));
+        self.output.push(format!("{}:", while_end));
+      }
     }
   }
 
@@ -222,18 +238,22 @@ impl CodeGen {
             self.output.push(format!("  div {}, {}, {} # division", result_reg, left_reg, right_reg))
           }
           BinOp::LT => {
-            self.output.push(format!("  slt {}, {}, {} # left < right", result_reg, left_reg, right_reg))
+            self.output.push(format!("  slt {}, {}, {} # left < right", result_reg, left_reg, right_reg));
+            self.output.push(format!("  sltu {}, x0, {} # Normalize result", result_reg, result_reg));
           }
           BinOp::LTE => {
             self.output.push(format!("  slt {}, {}, {} # right < left", result_reg, right_reg, left_reg));
-            self.output.push(format!("  xori {}, {}, 1 # For <=", result_reg, result_reg))
+            self.output.push(format!("  xori {}, {}, 1 # For <=", result_reg, result_reg));
+            self.output.push(format!("  sltu {}, x0, {} # Normalize result", result_reg, result_reg));
           }
           BinOp::GT => {
-            self.output.push(format!("  slt {}, {}, {} # right < left", result_reg, right_reg, left_reg))
+            self.output.push(format!("  slt {}, {}, {} # right < left", result_reg, right_reg, left_reg));
+            self.output.push(format!("  sltu {}, x0, {} # Normalize result", result_reg, result_reg));
           }
           BinOp::GTE => {
             self.output.push(format!("  slt {}, {}, {} # left < right", result_reg, left_reg, right_reg));
-            self.output.push(format!("  xori {}, {}, 1 # For >=", result_reg, result_reg))
+            self.output.push(format!("  xori {}, {}, 1 # For >=", result_reg, result_reg));
+            self.output.push(format!("  sltu {}, x0, {} # Normalize result", result_reg, result_reg));
           }
           BinOp::Eq => {
             self
@@ -243,6 +263,7 @@ impl CodeGen {
             self
               .output
               .push(format!("  xori {}, {}, 1 # !(diff != 0) -> (diff == 0)", result_reg, result_reg));
+            self.output.push(format!("  sltu {}, x0, {} # Normalize result", result_reg, result_reg));
           }
 
           BinOp::Neq => {
@@ -250,6 +271,7 @@ impl CodeGen {
               .output
               .push(format!("  sub {}, {}, {} # diff = left - right", result_reg, left_reg, right_reg));
             self.output.push(format!("  sltu {}, x0, {} # diff != 0", result_reg, result_reg));
+            self.output.push(format!("  sltu {}, x0, {} # Normalize result", result_reg, result_reg));
           }
           BinOp::AND => {
             self.output.push(format!("  and {}, {}, {} # Logical and", result_reg, left_reg, right_reg));

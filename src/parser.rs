@@ -96,6 +96,7 @@ pub enum Stmt {
   Assign { var: String, expr: Expr },
   Print { expr: Expr },
   PrintLn { expr: Option<Expr> },
+  While { condition: Expr, body: Vec<Stmt> },
   Exit(Option<Expr>),
 }
 
@@ -192,6 +193,28 @@ impl Parser {
         if is_newline { Ok(Stmt::PrintLn { expr: Some(expr) }) } else { Ok(Stmt::Print { expr }) }
       }
 
+      TokenKind::While => {
+        self.next();
+        let condition = self.parse_expr()?;
+        self.next();
+        let mut body = Vec::new();
+        while self.peek().kind != TokenKind::RBrace {
+          let expr = self.parse_statement()?;
+          body.push(expr);
+        }
+
+        if self.peek().kind == TokenKind::LBrace {
+          return Err(CompileError::ParseError {
+            msg: "Expected '}' after while-loop body".to_string(),
+            span: None,
+          });
+        }
+
+        self.next();
+
+        Ok(Stmt::While { condition, body })
+      }
+
       _ => Err(CompileError::ParseError {
         msg: format!("Unexpected token: {:?}", self.peek().kind),
         span: Some(self.peek().span),
@@ -212,13 +235,6 @@ impl Parser {
   }
 
   fn parse_expr(&mut self) -> Result<Expr, CompileError> {
-    match self.peek().kind {
-      TokenKind::Bang | TokenKind::Minus => self.parse_unary(),
-      _ => self.parse_expr_prec(Prec::Lowest),
-    }
-  }
-
-  fn parse_unary(&mut self) -> Result<Expr, CompileError> {
     self.parse_expr_prec(Prec::Lowest)
   }
 
