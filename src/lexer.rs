@@ -22,6 +22,10 @@ pub enum TokenKind {
   OrOr,
   And,
   Or,
+  Caret,
+  LShift,
+  RShift,
+  Tilde,
   Semicolon,
   LParen,
   RParen,
@@ -242,6 +246,14 @@ impl Lexer {
               (TokenKind::Or, 1)
             }
           }
+          '^' => {
+            self.next();
+            (TokenKind::Caret, 1)
+          }
+          '~' => {
+            self.next();
+            (TokenKind::Tilde, 1)
+          }
           '!' => {
             self.next();
             if let Some('=') = self.peek() {
@@ -273,7 +285,10 @@ impl Lexer {
           }
           '<' => {
             self.next();
-            if let Some('=') = self.peek() {
+            if let Some('<') = self.peek() {
+              self.next();
+              (TokenKind::LShift, 2)
+            } else if let Some('=') = self.peek() {
               self.next();
               (TokenKind::LTE, 2)
             } else {
@@ -282,7 +297,10 @@ impl Lexer {
           }
           '>' => {
             self.next();
-            if let Some('=') = self.peek() {
+            if let Some('>') = self.peek() {
+              self.next();
+              (TokenKind::RShift, 2)
+            } else if let Some('=') = self.peek() {
               self.next();
               (TokenKind::GTE, 2)
             } else {

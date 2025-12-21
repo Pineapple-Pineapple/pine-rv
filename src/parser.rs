@@ -61,6 +61,7 @@ impl Expr {
 pub enum UnaryOp {
   Not,
   Neg,
+  BitNot,
 }
 
 #[derive(Debug)]
@@ -77,18 +78,27 @@ pub enum BinOp {
   Neq,
   AND,
   OR,
+  BitAnd,
+  BitOr,
+  BitXor,
+  LShift,
+  RShift,
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum Prec {
-  Lowest, // default
-  Or,     // ||
-  And,    // &&
-  Eq,     // ==, !=
-  Comp,   // <, <=, >, >=
-  AddSub, // +, -
-  MulDiv, // *, /
-  Unary,  // !, -
+  Lowest,
+  Or,
+  And,
+  BitOr,
+  BitXor,
+  BitAnd,
+  Eq,
+  Comp,
+  Shift,
+  AddSub,
+  MulDiv,
+  Unary,
 }
 
 #[derive(Debug)]
@@ -292,8 +302,12 @@ impl Parser {
     match token.kind {
       TokenKind::Star | TokenKind::Slash => Prec::MulDiv,
       TokenKind::Plus | TokenKind::Minus => Prec::AddSub,
+      TokenKind::LShift | TokenKind::RShift => Prec::Shift,
       TokenKind::LT | TokenKind::LTE | TokenKind::GT | TokenKind::GTE => Prec::Comp,
       TokenKind::EqEq | TokenKind::BangEq => Prec::Eq,
+      TokenKind::And => Prec::BitAnd,
+      TokenKind::Caret => Prec::BitXor,
+      TokenKind::Or => Prec::BitOr,
       TokenKind::AndAnd => Prec::And,
       TokenKind::OrOr => Prec::Or,
       _ => Prec::Lowest,
@@ -315,6 +329,11 @@ impl Parser {
         self.next();
         let expr = self.parse_expr_prec(Prec::Unary)?;
         Expr::UnaryOp { op: UnaryOp::Neg, expr: Box::new(expr) }
+      }
+      TokenKind::Tilde => {
+        self.next();
+        let expr = self.parse_expr_prec(Prec::Unary)?;
+        Expr::UnaryOp { op: UnaryOp::BitNot, expr: Box::new(expr) }
       }
       _ => self.parse_primary()?,
     };
@@ -340,6 +359,11 @@ impl Parser {
         TokenKind::BangEq => BinOp::Neq,
         TokenKind::AndAnd => BinOp::AND,
         TokenKind::OrOr => BinOp::OR,
+        TokenKind::And => BinOp::BitAnd,
+        TokenKind::Or => BinOp::BitOr,
+        TokenKind::Caret => BinOp::BitXor,
+        TokenKind::LShift => BinOp::LShift,
+        TokenKind::RShift => BinOp::RShift,
         _ => break,
       };
 

@@ -323,6 +323,21 @@ impl CodeGen {
             self.output.push(format!("  or {}, {}, {} # Logical or", result_reg, left_reg, right_reg));
             self.output.push(format!("  sltu {}, x0, {} # Normalize result", result_reg, result_reg));
           }
+          BinOp::BitAnd => {
+            self.output.push(format!("  and {}, {}, {}", result_reg, left_reg, right_reg));
+          }
+          BinOp::BitOr => {
+            self.output.push(format!("  or {}, {}, {}", result_reg, left_reg, right_reg));
+          }
+          BinOp::BitXor => {
+            self.output.push(format!("  xor {}, {}, {}", result_reg, left_reg, right_reg));
+          }
+          BinOp::LShift => {
+            self.output.push(format!("  sll {}, {}, {}", result_reg, left_reg, right_reg));
+          }
+          BinOp::RShift => {
+            self.output.push(format!("  sra {}, {}, {}", result_reg, left_reg, right_reg));
+          }
         }
 
         self.free_reg(left_reg);
@@ -345,6 +360,9 @@ impl CodeGen {
           }
           UnaryOp::Neg => {
             self.output.push(format!("  sub {}, x0, {}", reg, reg));
+          }
+          UnaryOp::BitNot => {
+            self.output.push(format!("  not {}, {}", reg, reg));
           }
         }
 
