@@ -10,6 +10,7 @@ pub struct CodeGen {
   output: Vec<String>,
   reg_pool: Vec<String>,
   while_counter: usize,
+  if_counter: usize,
   temp_stack_offset: i32,
 }
 
@@ -23,6 +24,7 @@ impl CodeGen {
       output: Vec::new(),
       reg_pool: ["t0", "t1", "t2", "t3", "t4", "t5", "t6"].iter().map(|&r| r.to_string()).collect(),
       while_counter: 0,
+      if_counter: 0,
       temp_stack_offset: 128,
     }
   }
@@ -123,6 +125,38 @@ impl CodeGen {
         }
         self.output.push(format!("  j {}", while_start));
         self.output.push(format!("{}:", while_end));
+      }
+      Stmt::If { condition, then_body, else_body } => {
+        let if_count = self.if_counter;
+        let else_label = format!("IF{}_else", if_count);
+        let end_label = format!("IF{}_end", if_count);
+        self.if_counter += 1;
+
+        let reg = self.gen_expr(condition);
+
+        if else_body.is_some() {
+          self
+            .output
+            .push(format!("  beq {}, x0, {} # Jump to else branch if condition is false", reg, else_label));
+        } else {
+          self.output.push(format!("  beq {}, x0, {} # Jump to end if condition is false", reg, end_label));
+        }
+        self.free_reg(reg);
+
+        for stmt in then_body {
+          self.gen_stmt(stmt);
+        }
+
+        if else_body.is_some() {
+          self.output.push(format!("  j {} # Skip else block", end_label));
+          self.output.push(format!("{}:", else_label));
+
+          for stmt in else_body.as_ref().unwrap() {
+            self.gen_stmt(stmt);
+          }
+        }
+
+        self.output.push(format!("{}:", end_label));
       }
     }
   }

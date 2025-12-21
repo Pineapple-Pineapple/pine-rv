@@ -97,6 +97,7 @@ pub enum Stmt {
   Print { expr: Expr },
   PrintLn { expr: Option<Expr> },
   While { condition: Expr, body: Vec<Stmt> },
+  If { condition: Expr, then_body: Vec<Stmt>, else_body: Option<Vec<Stmt>> },
   Exit(Option<Expr>),
 }
 
@@ -196,23 +197,88 @@ impl Parser {
       TokenKind::While => {
         self.next();
         let condition = self.parse_expr()?;
+
+        if self.peek().kind != TokenKind::LBrace {
+          return Err(CompileError::ParseError {
+            msg: "Expected '{' after while condition".to_string(),
+            span: Some(self.peek().span),
+          });
+        }
+
         self.next();
         let mut body = Vec::new();
         while self.peek().kind != TokenKind::RBrace {
-          let expr = self.parse_statement()?;
-          body.push(expr);
-        }
-
-        if self.peek().kind == TokenKind::LBrace {
-          return Err(CompileError::ParseError {
-            msg: "Expected '}' after while-loop body".to_string(),
-            span: None,
-          });
+          if self.peek().kind == TokenKind::Eof {
+            return Err(CompileError::ParseError {
+              msg: "Expected '}' after while-loop body".to_string(),
+              span: Some(self.peek().span),
+            });
+          }
+          let stmt = self.parse_statement()?;
+          body.push(stmt);
         }
 
         self.next();
 
         Ok(Stmt::While { condition, body })
+      }
+
+      TokenKind::If => {
+        self.next();
+        let condition = self.parse_expr()?;
+
+        if self.peek().kind != TokenKind::LBrace {
+          return Err(CompileError::ParseError {
+            msg: "Expected '{' after if condition".to_string(),
+            span: Some(self.peek().span),
+          });
+        }
+
+        self.next();
+        let mut then_body = Vec::new();
+        while self.peek().kind != TokenKind::RBrace {
+          if self.peek().kind == TokenKind::Eof {
+            return Err(CompileError::ParseError {
+              msg: "Expected '}' after if body".to_string(),
+              span: Some(self.peek().span),
+            });
+          }
+          let stmt = self.parse_statement()?;
+          then_body.push(stmt);
+        }
+
+        self.next();
+
+        let else_body = if self.peek().kind == TokenKind::Else {
+          self.next();
+
+          if self.peek().kind != TokenKind::LBrace {
+            return Err(CompileError::ParseError {
+              msg: "Expected '{' after else".to_string(),
+              span: Some(self.peek().span),
+            });
+          }
+
+          self.next();
+          let mut body = Vec::new();
+          while self.peek().kind != TokenKind::RBrace {
+            if self.peek().kind == TokenKind::Eof {
+              return Err(CompileError::ParseError {
+                msg: "Expected '}' after else body".to_string(),
+                span: Some(self.peek().span),
+              });
+            }
+            let stmt = self.parse_statement()?;
+            body.push(stmt);
+          }
+
+          self.next();
+          Some(body)
+        } else {
+          None
+        };
+
+        Ok(Stmt::If { condition, then_body, else_body })
       }
 
       _ => Err(CompileError::ParseError {

@@ -35,6 +35,8 @@ pub enum TokenKind {
   Print,
   PrintLn,
   While,
+  If,
+  Else,
   Comment,
   Exit,
   Eof,
@@ -303,6 +305,8 @@ impl Lexer {
               "print" => TokenKind::Print,
               "println" => TokenKind::PrintLn,
               "while" => TokenKind::While,
+              "if" => TokenKind::If,
+              "else" => TokenKind::Else,
               _ => TokenKind::Ident(id),
             };
             (kind, len)
