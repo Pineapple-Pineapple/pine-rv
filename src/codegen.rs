@@ -63,8 +63,8 @@ impl CodeGen {
     }
 
     self.output.push("  # Exit with code 0".to_string());
-    self.output.push("  li a1, 0 # Exit code 0".to_string());
-    self.output.push("  li a0, 17 # Syscall 17: exit2".to_string());
+    self.output.push("  li a0, 0 # Exit code 0".to_string());
+    self.output.push("  li a7, 10 # Syscall 10: exit".to_string());
     self.output.push("  ecall".to_string());
 
     let mut final_out = Vec::new();
@@ -93,21 +93,20 @@ impl CodeGen {
       Stmt::Exit(code) => {
         if let Some(expr) = code {
           let reg = self.gen_expr(expr);
-          self.output.push(format!("  mv a1, {} # exit code", reg));
-          self.output.push("  li a0, 17 # Syscall 17: exit2".to_string());
+          self.output.push(format!("  mv a0, {} # exit code", reg));
           self.free_reg(reg);
         } else {
-          self.output.push("  li a0, 10 # Syscall 10: exit".to_string());
+          self.output.push("  li a0, 0 # Exit code 0".to_string());
         }
-
+        self.output.push("  li a7, 10 # Syscall 10: exit".to_string());
         self.output.push("  ecall".to_string());
       }
       Stmt::Print { expr } => self.gen_print(expr, false),
       Stmt::PrintLn { expr } => match expr {
         Some(expr) => self.gen_print(expr, true),
         None => {
-          self.output.push("  li a1, '\\n' # Load newline char".to_string());
-          self.output.push("  li a0, 11 # Syscall 11: print_character".to_string());
+          self.output.push("  li a0, '\\n' # Load newline char".to_string());
+          self.output.push("  li a7, 11 # Syscall 11: print_character".to_string());
           self.output.push("  ecall".to_string());
         }
       },
@@ -165,6 +164,7 @@ impl CodeGen {
     match expr {
       Expr::Int(_) => Type::Int,
       Expr::String(_) => Type::String,
+      Expr::Input => Type::Int,
       Expr::Var(name) => self
         .var_types
         .get(name)
@@ -181,29 +181,29 @@ impl CodeGen {
       Type::String => {
         if let Expr::String(s) = expr {
           let label = self.ensure_string_label(s);
-          self.output.push(format!("  la a1, {} # Load string {}", label, Self::escape_asciz(s)));
-          self.output.push("  li a0, 4 # Syscall 4: print_string".to_string());
+          self.output.push(format!("  la a0, {} # Load string {}", label, Self::escape_asciz(s)));
+          self.output.push("  li a7, 4 # Syscall 4: print_string".to_string());
           self.output.push("  ecall".to_string());
         } else if let Expr::Var(name) = expr {
           let reg = self.gen_expr(expr);
-          self.output.push(format!("  mv a1, {} # Load string from variable {}", reg, name));
-          self.output.push("  li a0, 4 # Syscall 4: print_string".to_string());
+          self.output.push(format!("  mv a0, {} # Load string from variable {}", reg, name));
+          self.output.push("  li a7, 4 # Syscall 4: print_string".to_string());
           self.output.push("  ecall".to_string());
           self.free_reg(reg);
         }
       }
       Type::Int => {
         let reg = self.gen_expr(expr);
-        self.output.push(format!("  mv a1, {} # Expression to print", reg));
-        self.output.push("  li a0, 1 # Syscall 1: print_int".to_string());
+        self.output.push(format!("  mv a0, {} # Expression to print", reg));
+        self.output.push("  li a7, 1 # Syscall 1: print_int".to_string());
         self.output.push("  ecall".to_string());
         self.free_reg(reg);
       }
     }
 
     if newline {
-      self.output.push("  li a1, '\\n' # Load newline char".to_string());
-      self.output.push("  li a0, 11 # Syscall 11: print_character".to_string());
+      self.output.push("  li a0, '\\n' # Load newline char".to_string());
+      self.output.push("  li a7, 11 # Syscall 11: print_character".to_string());
       self.output.push("  ecall".to_string());
     }
   }
@@ -219,8 +219,7 @@ impl CodeGen {
     let pairs: Vec<_> = self.strings.iter().collect();
     for (s, label) in pairs {
       let escaped = Self::escape_asciz(s);
-      // NOTE: venus uses .asciiz instead of .asciz for some reason
-      out.push(format!("{}: .asciiz \"{}\"", label, escaped));
+      out.push(format!("{}: .asciz \"{}\"", label, escaped));
     }
   }
 
@@ -366,6 +365,13 @@ impl CodeGen {
           }
         }
 
+        reg
+      }
+      Expr::Input => {
+        let reg = self.alloc_reg();
+        self.output.push("  li a7, 5 # Syscall 5: read_int".to_string());
+        self.output.push("  ecall".to_string());
+        self.output.push(format!("  mv {}, a0 # Store input result", reg));
         reg
       }
     }

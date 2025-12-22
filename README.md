@@ -1,6 +1,6 @@
 # Pine Language Compiler
 
-A lightweight compiler for my own programming (called Pine) language that targets RISC-V assembly. Written in Rust with a focus on simplicity and educational value
+A lightweight compiler for my own programming language (called Pine) that targets RISC-V assembly. Written in Rust with a focus on simplicity and educational value (or at least some value).
 
 ## Overview
 Pine is a simple imperative language designed by me to learn how compilers, lexers, and parsers work and RISC-V assembly programming. The compiler can perform lexical analysis, parsing (with type checking), and can generate RISC-V assembly code.
@@ -10,7 +10,11 @@ Pine is a simple imperative language designed by me to learn how compilers, lexe
 ### Prerequisites
 
 - Rust toolchain (1.70+)
-- A RISC-V simulator (this project is target specifically towards) [Venus](https://venus.kvakil.me/)
+- RARS (RISC-V Assembler and Runtime Simulator)
+
+### Installing RARS
+The releases and installation process for installing RARS can be found here:
+https://github.com/TheThirdOne/rars
 
 ### Installation
 
@@ -49,7 +53,8 @@ Compile and run:
 # Compile to RISC-V assembly
 ./target/release/pine-rv hello.pine
 
-Paste content of hello.s into [Venus](https://venus.kvakil.me/)
+# Run with RARS
+rars hello.s
 ```
 
 ## Language Reference
@@ -90,11 +95,30 @@ result = x * 2 + 5;
 - `||` Logical OR
 - `!` Logical NOT (unary)
 
+**Bitwise:**
+- `&` Bitwise AND
+- `|` Bitwise OR
+- `^` Bitwise XOR
+- `~` Bitwise NOT (unary)
+- `<<` Left shift
+- `>>` Right shift (arithmetic)
+
 **Unary:**
 - `-` Negation
 - `!` Logical NOT
+- `~` Bitwise NOT
 
 ### Control Flow
+
+**If/Else statements:**
+```pine
+x = 10;
+if x > 5 {
+  println "x is greater than 5";
+} else {
+  println "x is 5 or less";
+}
+```
 
 **While Loops:**
 ```pine
@@ -115,6 +139,12 @@ println x + 5;         # Print expressions
 println;               # Print just a newline
 ```
 
+**Input:**
+```pine
+x = input();           # Read integer from user
+println x;
+```
+
 ### Comments
 
 ```pine
@@ -133,7 +163,7 @@ exit x;    # Exit with variable value
 ## Command Line Usage
 
 ```bash
-riscv-compiler [OPTIONS] <FILE>
+pine-rv [OPTIONS] <FILE>
 ```
 
 ### Options
@@ -149,16 +179,19 @@ riscv-compiler [OPTIONS] <FILE>
 
 ```bash
 # Basic compilation
-riscv-compiler program.pine
+pine-rv program.pine
 
 # Specify output location
-riscv-compiler program.pine -o output/result.s
+pine-rv program.pine -o output/result.s
 
 # View generated assembly
-riscv-compiler program.pine -p
+pine-rv program.pine -p
 
 # Debug mode with full information
-riscv-compiler program.pine -v --dump-tokens tokens.txt --dump-ast ast.txt
+pine-rv program.pine -v --dump-tokens tokens.txt --dump-ast ast.txt
+
+# Compile and run
+pine-rv program.pine && rars program.s
 ```
 
 ## Architecture
@@ -196,13 +229,13 @@ RISC-V Assembly (.s)
 
 ### RISC-V Implementation Details
 
-Note: These are defined in [Venus Environmental Calls](https://github.com/kvakil/venus/wiki/Environmental-Calls)
 **Syscalls Used:**
-- `1` - print_int
-- `4` - print_string  
-- `10` - exit
-- `11` - print_character
-- `17` - exit2 (exit with code)
+All syscalls that rars supports are shown [Here](https://github.com/TheThirdOne/rars/wiki/Environment-Calls)
+- `1` - PrintInt
+- `4` - PrintString
+- `5` - ReadInt
+- `10` - Exit
+- `11` - PrintChar
 
 **Register Usage:**
 - `t0-t6` - Temporary registers for expression evaluation
@@ -225,40 +258,10 @@ Cargo.toml        # Project dependencies
 README.md         # This file
 ```
 
-## TODO
-
-### High Priority
-
-- [ ] **If/Else conditionals**
-- [ ] **Functions and function calls**
-- [ ] **Break and continue statements**
-- [ ] **Proper variable scoping**
-- [ ] **For loops**
-
-### Medium Priority
-
-- [ ] **Arrays and indexing**
-- [ ] **String concatenation**
-- [ ] **Boolean type**
-- [ ] **Modulo operator (%)**
-- [ ] **Multi-line comments**
-- [ ] **Optimization passes** - Constant folding, dead code elimination
-
-### Nice to Have
-
-- [ ] **Inline assembly**
-- [ ] **Floating-point arithmetic**
-- [ ] **Bitwise operators**
-- [ ] **Hexadecimal and binary literals** - `0xFF`, `0b1010`
-- [ ] **Multiple source files and imports** - Modular programs
-- [ ] **Standard library** - Common utility functions
-- [ ] **Debug symbol generation** - Better debugging support
-- [ ] **REPL mode** - Interactive development environment
-
 ## License
 
 This project is licensed under the GNU General Public License v3.0 (GPLv3)
 
 ---
 
-**Note**: This is an educational compiler made mainly for myself. It prioritizes clarity and simplicity over performance and may not implement all production-compiler features
+**Note**: This is a compiler made mainly for myself. This is not by any means the "proper" way of going able making something resembling a compiler. It's just a fun side-project.

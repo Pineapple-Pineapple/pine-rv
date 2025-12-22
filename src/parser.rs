@@ -17,6 +17,7 @@ pub enum Expr {
   String(String),
   BinOp { op: BinOp, left: Box<Expr>, right: Box<Expr> },
   UnaryOp { op: UnaryOp, expr: Box<Expr> },
+  Input,
 }
 
 impl Expr {
@@ -24,6 +25,7 @@ impl Expr {
     match self {
       Expr::Int(_) => Ok(Type::Int),
       Expr::String(_) => Ok(Type::String),
+      Expr::Input => Ok(Type::Int),
       Expr::Var(name) => var_types
         .get(name)
         .cloned()
@@ -418,6 +420,21 @@ impl Parser {
         let val = s.clone();
         self.next();
         Ok(Expr::String(val))
+      }
+      TokenKind::Input => {
+        self.next();
+        if self.peek().kind == TokenKind::LParen {
+          self.next();
+          if self.peek().kind == TokenKind::RParen {
+            self.next();
+          } else {
+            return Err(CompileError::ParseError {
+              msg: "Expected ')' after 'input('".to_string(),
+              span: Some(self.peek().span),
+            });
+          }
+        }
+        Ok(Expr::Input)
       }
       _ => Err(CompileError::ParseError {
         msg: format!("Unexpected token: {:?}", self.peek().kind),
