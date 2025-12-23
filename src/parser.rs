@@ -72,6 +72,7 @@ pub enum BinOp {
   Sub,
   Mul,
   Div,
+  Mod,
   GT,
   LT,
   GTE,
@@ -302,7 +303,7 @@ impl Parser {
 
   fn precedence(token: &Token) -> Prec {
     match token.kind {
-      TokenKind::Star | TokenKind::Slash => Prec::MulDiv,
+      TokenKind::Star | TokenKind::Slash | TokenKind::Percent => Prec::MulDiv,
       TokenKind::Plus | TokenKind::Minus => Prec::AddSub,
       TokenKind::LShift | TokenKind::RShift => Prec::Shift,
       TokenKind::LT | TokenKind::LTE | TokenKind::GT | TokenKind::GTE => Prec::Comp,
@@ -353,6 +354,7 @@ impl Parser {
         TokenKind::Minus => BinOp::Sub,
         TokenKind::Star => BinOp::Mul,
         TokenKind::Slash => BinOp::Div,
+        TokenKind::Percent => BinOp::Mod,
         TokenKind::GT => BinOp::GT,
         TokenKind::GTE => BinOp::GTE,
         TokenKind::LT => BinOp::LT,

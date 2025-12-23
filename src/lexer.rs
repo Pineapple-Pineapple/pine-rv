@@ -26,6 +26,7 @@ pub enum TokenKind {
   LShift,
   RShift,
   Tilde,
+  Percent,
   Semicolon,
   LParen,
   RParen,
@@ -219,6 +220,10 @@ impl Lexer {
           '/' => {
             self.next();
             (TokenKind::Slash, 1)
+          }
+          '%' => {
+            self.next();
+            (TokenKind::Percent, 1)
           }
           '=' => {
             self.next();
