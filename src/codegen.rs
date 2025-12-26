@@ -11,7 +11,6 @@ pub struct CodeGen {
   reg_pool: Vec<String>,
   while_counter: usize,
   if_counter: usize,
-  temp_stack_offset: i32,
 }
 
 impl CodeGen {
@@ -25,7 +24,6 @@ impl CodeGen {
       reg_pool: ["t0", "t1", "t2", "t3", "t4", "t5", "t6"].iter().map(|&r| r.to_string()).collect(),
       while_counter: 0,
       if_counter: 0,
-      temp_stack_offset: 128,
     }
   }
 
@@ -38,11 +36,7 @@ impl CodeGen {
     if let Some(reg) = self.reg_pool.pop() {
       reg
     } else {
-      let victim = "t0".to_string();
-      let stack_loc = self.temp_stack_offset;
-      self.temp_stack_offset += 4;
-      self.output.push(format!("  sw {}, {}(sp) # Spill {} to stack", victim, stack_loc, victim));
-      victim
+      panic!("Compiler: No registers left to allocate") // Todo: stack spill
     }
   }
 
